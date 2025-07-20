@@ -6,9 +6,12 @@ A modern full-stack application demonstrating DevOps best practices with microse
 
 This project consists of:
 - **DevOps Pipeline**: Jenkins CI/CD with Docker and Kubernetes deployment
+- **Infrastructure as Code**: Terraform for DigitalOcean Kubernetes cluster provisioning
 - **Orchestration**: Kubernetes with blue-green deployment strategy
 - **Frontend**: React.js application with user authentication and product management
-- **Backend**: Node.js/Express API with MongoDB integration
+- **Microservices Backend**: 
+  - **User Service**: Node.js/Express API handling authentication and user management
+  - **Commerce Service**: Node.js/Express API managing products and orders
 - **Database**: MongoDB for data persistence
 
 ## Technology Stack
@@ -16,14 +19,20 @@ This project consists of:
 ### Frontend
 - **React.js** 
 
-### Backend
+### Backend Microservices
 - **Node.js** - JavaScript runtime
 - **Express.js** - Web application framework
+- **User Service** - Authentication, user registration, and user management
+- **Commerce Service** - Product catalog, order management, and inventory
 - **MongoDB** - NoSQL database
 - **Mongoose** - MongoDB object modeling
+- **JWT** - JSON Web Tokens for authentication
+- **bcrypt** - Password hashing
 - **CORS** - Cross-origin resource sharing
 
-### DevOps & Infrastructure
+### Infrastructure & DevOps
+- **Terraform** - Infrastructure as Code for cloud provisioning
+- **DigitalOcean** - Cloud provider for Kubernetes clusters
 - **Docker** - Containerization platform
 - **Kubernetes** - Container orchestration
 - **Jenkins** - CI/CD automation
@@ -41,10 +50,48 @@ Before running this application, ensure you have the following installed:
 - **kubectl** CLI tool
 - **Jenkins** (I run it as a docker container )
 - **MongoDB** (local or cloud instance)
+- **Terraform** (for infrastructure provisioning)
+- **DigitalOcean Account** (for cloud deployment)
 
 ## 🏃‍♂️ Quick Start
 
-### 1. Jenkins CI/CD Setup
+### 1. Infrastructure Setup with Terraform (Optional - for cloud deployment)
+
+If you want to deploy to a DigitalOcean Kubernetes cluster, use Terraform to provision the infrastructure:
+
+#### Step 1: Configure Terraform Variables
+Create a `terraform.tfvars` file in the `terraform/` directory (or use the existing ones in `terraform/tfvars/`):
+```bash
+cd terraform
+cp tfvars/dev.tfvars terraform.tfvars
+# Edit the file with your specific values
+```
+
+#### Step 2: Initialize and Apply Terraform
+```bash
+# Initialize Terraform
+terraform init
+
+# Plan the deployment
+terraform plan
+
+# Apply the infrastructure
+terraform apply
+```
+
+This will create:
+- DigitalOcean Kubernetes cluster
+- Node pools
+- Load balancers
+- Network configurations
+
+#### Step 3: Configure kubectl for the new cluster
+```bash
+# Get cluster credentials
+doctl kubernetes cluster kubeconfig save <cluster-name>
+```
+
+### 2. Jenkins CI/CD Setup
 
 This section will help you set up Jenkins with Docker integration to automate the build, test, and deployment pipeline.
 
@@ -134,15 +181,19 @@ If you want Jenkins to deploy to Kubernetes:
 
 #### Step 7: Create Jenkins Pipelines
 
-1. **Create Backend Pipeline:**
+1. **Create User Service Pipeline:**
    - Go to **New Item** → **Pipeline**
-   - **Name:** `backend-pipeline`
+   - **Name:** `user-service-pipeline`
    - **Pipeline Definition:** Pipeline script from SCM
    - **SCM:** Git
    - **Repository URL:** Your repository URL
-   - **Script Path:** `backend/Jenkinsfile`
+   - **Script Path:** `user-service/Jenkinsfile`
 
-2. **Create Frontend Pipeline:**
+2. **Create Commerce Service Pipeline:**
+   - **Name:** `commerce-service-pipeline`
+   - **Script Path:** `commerce-service/Jenkinsfile`
+
+3. **Create Frontend Pipeline:**
    - **Name:** `frontend-pipeline`
    - **Script Path:** `frontend/Jenkinsfile`
 
@@ -154,26 +205,37 @@ If you want Jenkins to deploy to Kubernetes:
 **Option 2: Manual Trigger:**
 - Go to your pipeline → Click **Build Now**
 
-### 2. Kubernetes Deployment
+### 3. Kubernetes Deployment
 
 #### Prerequisites
-- Ensure your Kubernetes cluster is running
+- Ensure your Kubernetes cluster is running (local or provisioned via Terraform)
 - Configure `kubectl` to connect to your cluster
-- Edit the Kubernetes YAML files to reference the Docker images for the frontend and backend images that were pushed to Docker Hub
-#### Deploy Backend (Blue-Green)
+- Edit the Kubernetes YAML files to reference the Docker images for the microservices that were pushed to Docker Hub
+
+#### Deploy User Service (Blue-Green)
 ```bash
 # Deploy blue version
-kubectl apply -f k8s/backend-blue-deployment.yaml
-kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/user-service/user-blue-deployment.yaml
+kubectl apply -f k8s/user-service/user-clusterIP.yaml
 
 # Deploy green version (for blue-green deployment)
-kubectl apply -f k8s/backend-green-deployment.yaml
+kubectl apply -f k8s/user-service/user-green-deployment.yaml
+```
+
+#### Deploy Commerce Service (Blue-Green)
+```bash
+# Deploy blue version
+kubectl apply -f k8s/commerce-service/commerce-blue-deployment.yaml
+kubectl apply -f k8s/commerce-service/commerce-clusterIP.yaml
+
+# Deploy green version (for blue-green deployment)
+kubectl apply -f k8s/commerce-service/commerce-green-deployment.yaml
 ```
 
 #### Deploy Frontend
 ```bash
-kubectl apply -f k8s/frontend-deployment.yaml
-kubectl apply -f k8s/frontend-clusterIP.yaml
+kubectl apply -f k8s/frontend/frontend-deployment.yaml
+kubectl apply -f k8s/frontend/frontend-clusterIP.yaml
 ```
 
 #### Check Deployment Status
@@ -230,9 +292,15 @@ Now you can access your application securely at `https://myapp.local`
 
 ## 🔄 CI/CD Pipeline
 
-This project includes automated Jenkins pipelines for both frontend and backend:
+This project includes automated Jenkins pipelines for frontend and both microservices:
 
-### Backend Pipeline Features:
+### User Service Pipeline Features:
+- **Build**: Creates Docker image with version tagging
+- **Test**: Validates container functionality  
+- **Push**: Publishes image to Docker Hub
+- **Deploy**: Implements blue-green deployment strategy
+
+### Commerce Service Pipeline Features:
 - **Build**: Creates Docker image with version tagging
 - **Test**: Validates container functionality
 - **Push**: Publishes image to Docker Hub
@@ -249,15 +317,62 @@ This project includes automated Jenkins pipelines for both frontend and backend:
 - **Manual**: Jenkins job execution
 - **Webhook**: Git repository changes (if configured)
 
+## 🏗️ Project Structure
+
+```
+microservices-devops/
+├── user-service/              # User authentication microservice
+│   ├── models/User.js        # User data model
+│   ├── routes/users.js       # Authentication endpoints
+│   ├── Dockerfile           # Container configuration
+│   └── Jenkinsfile         # CI/CD pipeline
+├── commerce-service/         # Product and order microservice  
+│   ├── models/
+│   │   ├── Product.js       # Product data model
+│   │   └── Order.js         # Order data model
+│   ├── routes/
+│   │   ├── products.js      # Product management endpoints
+│   │   └── order.js         # Order management endpoints
+│   ├── Dockerfile           # Container configuration
+│   └── Jenkinsfile         # CI/CD pipeline
+├── frontend/                 # React.js application
+│   ├── src/
+│   │   ├── pages/           # Application pages
+│   │   ├── components/      # Reusable components
+│   │   ├── contexts/        # React contexts
+│   │   └── api/            # API communication layer
+│   ├── Dockerfile          # Container configuration
+│   └── Jenkinsfile        # CI/CD pipeline
+├── k8s/                     # Kubernetes configurations
+│   ├── user-service/       # User service deployments
+│   ├── commerce-service/   # Commerce service deployments
+│   ├── frontend/           # Frontend deployments
+│   └── ingress.yaml       # Ingress controller
+├── terraform/              # Infrastructure as Code
+│   ├── main.tf            # Main Terraform configuration
+│   ├── variables.tf       # Variable definitions
+│   └── tfvars/           # Environment-specific variables
+└── README.md              # Project documentation
+```
+
 ## 📊 API Endpoints
 
-### User Endpoints
-- `GET /users` - Get all users
-- `POST /users` - Create new user
+### User Service Endpoints (Authentication & User Management)
+- `POST /users/signup` - Register new user
+- `POST /users/login` - User authentication
+- `GET /users/profile` - Get user profile (authenticated)
+- `PUT /users/profile` - Update user profile (authenticated)
 
-### Product Endpoints
-- `GET /products` - Get all products
-- `POST /products` - Create new product
+### Commerce Service Endpoints (Products & Orders)
+- `GET /products/all-products` - Get all products
+- `POST /products/create-product` - Create new product (authenticated)
+- `POST /orders/create-order` - Create new order (authenticated)
+- `GET /orders/user-orders` - Get user's orders (authenticated)
+
+### Frontend Service
+- Serves the React.js application
+- Handles routing and user interface
+- Communicates with both microservices via API calls
 
 ## 🤝 Contributing
 
