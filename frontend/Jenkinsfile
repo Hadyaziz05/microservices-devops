@@ -1,0 +1,100 @@
+pipeline {
+    agent {
+        node {
+            label 'jenkins-docker-agent'
+        }
+    }
+
+    // triggers {
+    //     pollSCM 'H/5 * * * *'
+    // }
+
+    environment {
+        TAG = "v${env.BUILD_NUMBER}"
+        IMAGE = "hadyaziz05/frontend:${TAG}"
+        DOCKER_HOST = 'tcp://docker-socat:2375'
+    }
+
+    stages {
+
+        stage('Check for frontend changes') {
+            steps {
+                script {
+                    def changedFiles = sh(
+                        script: "git diff --name-only HEAD~1 HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Changed files:\n${changedFiles}"
+
+                    def hasFrontendChanges = changedFiles.split('\n').any { it.startsWith('frontend/') }
+
+                    if (!hasFrontendChanges) {
+                        echo "No changes in /frontend folder. Skipping build."
+                        currentBuild.result = 'SUCCESS'
+                        sh 'exit 0'
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building Docker Image: ${IMAGE}"
+                sh '''
+                docker build -t $IMAGE frontend/
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo "Running container test..."
+                sh '''
+                docker run --rm $IMAGE serve --version
+                '''
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                echo "Pushing image to Docker Hub..."
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh '''
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
+                    docker push $IMAGE
+                    '''
+                }
+            }
+        }
+
+        stage('Update YAML and Deploy to K8s') {
+            steps {
+                echo "Updating frontend-deployment.yaml and applying to Kubernetes"
+                withCredentials([
+                    usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS'),
+                    file(credentialsId: 'kube-config-jenkins', variable: 'KUBECONFIG')
+                ]) {
+                    sh '''
+                    rm -rf repo
+                    git config --global user.name "Jenkins CI"
+                    git config --global user.email "jenkins@example.com"
+
+                    git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/devops-microservices.git repo
+                    cd repo
+
+                    YAML_PATH=k8s/frontend-deployment.yaml
+                    sed -i "s|image: .*|image: ${IMAGE}|" "$YAML_PATH"
+
+                    git add "$YAML_PATH"
+                    git commit -m "[skip ci] update frontend image to ${TAG}" || echo "No changes"
+                    git push origin main
+
+                    echo "Applying updated YAML to Kubernetes..."
+                    kubectl apply -f "$YAML_PATH"
+                    '''
+                }
+            }
+        }
+    }
+}

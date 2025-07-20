@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commerce-green
+  labels:
+    app: commerce
+    version: green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: commerce
+      version: green
+  template:
+    metadata:
+      labels:
+        app: commerce
+        version: green
+    spec:
+      containers:
+        - name: commerce-service
+          image: hadyaziz05/commerce-service:v1
+          ports:
+            - containerPort: 5000   
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: MONGODB_URI

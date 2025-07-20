@@ -1,0 +1,129 @@
+pipeline {
+    agent {
+        node {
+            label 'jenkins-docker-agent'
+        }
+    }
+
+    // Uncomment if you want SCM polling
+    // triggers {
+    //     pollSCM('* * * * *')
+    // }
+
+    environment {
+        TAG = "v${env.BUILD_NUMBER}"
+        IMAGE = "hadyaziz05/user-service:${TAG}"
+        DOCKER_HOST = 'tcp://docker-socat:2375'
+    }
+
+    stages {
+
+        stage('Check for user-service changes') {
+            steps {
+                script {
+                    def changedFiles = sh(
+                        script: "git diff --name-only HEAD~1 HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Changed files:\n${changedFiles}"
+
+                    def hasUserServiceChanges = changedFiles.split('\n').any { it.startsWith('user-service/') }
+
+                    if (!hasUserServiceChanges) {
+                        echo "No changes in /user-service folder. Skipping build."
+                        currentBuild.result = 'SUCCESS'
+                        sh 'exit 0'
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building Docker Image: ${IMAGE}"
+                sh 'docker build -t $IMAGE user-service/'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo "Testing container..."
+                sh 'docker run --rm $IMAGE node --version'
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                echo "Pushing to Docker Hub..."
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh '''
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
+                    docker push $IMAGE
+                    '''
+                }
+            }
+        }
+
+        stage('Blue-Green Deploy') {
+            agent { label 'controller' }
+            steps {
+                echo "Performing Blue-Green Deployment..."
+                withCredentials([file(credentialsId: 'kube-config-jenkins', variable: 'KUBECONFIG')]) {
+                    script {
+                        def currentVersion = sh(
+                            script: "kubectl get service user-clusterip -o=jsonpath='{.spec.selector.version}'",
+                            returnStdout: true
+                        ).trim()
+
+                        def newVersion = currentVersion == "blue" ? "green" : "blue"
+                        def newDeployment = "user-${newVersion}"
+                        def oldDeployment = "user-${currentVersion}"
+
+                        echo "Deploying to ${newDeployment} with image ${IMAGE}"
+
+                        sh "kubectl scale deployment/${newDeployment} --replicas=2"
+                        sh "kubectl set image deployment/${newDeployment} user-service=${IMAGE}"
+                        sh "kubectl rollout status deployment/${newDeployment}"
+
+                        sh "kubectl patch service user-clusterip -p '{\"spec\": {\"selector\": {\"app\": \"user\", \"version\": \"${newVersion}\"}}}'"
+
+                        sh "kubectl scale deployment/${oldDeployment} --replicas=0"
+
+                        env.NEW_VERSION = newVersion
+                        env.OLD_VERSION = currentVersion
+                    }
+                }
+            }
+        }
+
+        stage('Update YAML in Git') {
+            steps {
+                echo "Updating Kubernetes YAML in Git with new image and service selector..."
+                withCredentials([usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    withEnv(["NEW_VERSION=${env.NEW_VERSION}", "OLD_VERSION=${env.OLD_VERSION}"]) {
+                        sh '''
+                        rm -rf repo
+                        git config --global user.name "Jenkins CI"
+                        git config --global user.email "jenkins@example.com"
+                        git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/devops-microservices.git repo
+                        cd repo
+
+                        # Update deployment YAML for new version
+                        YAML_PATH=k8s/user-${NEW_VERSION}-deployment.yaml
+                        sed -i "s|image: .*|image: ${IMAGE}|" "$YAML_PATH"
+
+                        # Update user-clusterIP selector to match new version
+                        SERVICE_PATH=k8s/user-clusterIP.yaml
+                        sed -i "s/version: ${OLD_VERSION}/version: ${NEW_VERSION}/" "$SERVICE_PATH"
+
+                        git add "$YAML_PATH" "$SERVICE_PATH"
+                        git commit -m "[skip ci] update user ${NEW_VERSION} image to ${TAG} and service selector" || echo "No changes"
+                        git push origin main
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

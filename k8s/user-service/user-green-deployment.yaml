@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-green
+  labels:
+    app: user
+    version: green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user
+      version: green
+  template:
+    metadata:
+      labels:
+        app: user
+        version: green
+    spec:
+      containers:
+        - name: user-service
+          image: hadyaziz05/user-service:v2
+          ports:
+            - containerPort: 4000   
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: MONGODB_URI
