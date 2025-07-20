@@ -1,6 +1,6 @@
 # DevOps Microservices Application
 
-A modern full-stack application demonstrating DevOps best practices with microservices architecture, featuring automated CI/CD pipelines,IaC(terraform), containerization, and Kubernetes orchestration.
+A modern full-stack application demonstrating DevOps best practices with microservices architecture, featuring automated CI/CD pipelines, IaC(terraform), containerization, and Kubernetes orchestration.
 
 ## Architecture Overview
 
@@ -212,7 +212,17 @@ If you want Jenkins to deploy to Kubernetes:
 - Configure `kubectl` to connect to your cluster
 - Edit the Kubernetes YAML files to reference the Docker images for the microservices that were pushed to Docker Hub
 
-#### Deploy User Service (Blue-Green)
+#### Step 1: Create MongoDB Secret
+Before deploying the backend services, create a Kubernetes secret with your MongoDB connection string:
+
+```bash
+kubectl create secret generic backend-secret \
+  --from-literal=MONGODB_URI=<your_mongodb_atlas_connection_string>
+```
+
+Replace `<your_mongodb_atlas_connection_string>` with your actual MongoDB Atlas connection string.
+
+#### Step 2: Deploy User Service (Blue-Green)
 ```bash
 # Deploy blue version
 kubectl apply -f k8s/user-service/user-blue-deployment.yaml
@@ -222,7 +232,7 @@ kubectl apply -f k8s/user-service/user-clusterIP.yaml
 kubectl apply -f k8s/user-service/user-green-deployment.yaml
 ```
 
-#### Deploy Commerce Service (Blue-Green)
+#### Step 3: Deploy Commerce Service (Blue-Green)
 ```bash
 # Deploy blue version
 kubectl apply -f k8s/commerce-service/commerce-blue-deployment.yaml
@@ -232,13 +242,13 @@ kubectl apply -f k8s/commerce-service/commerce-clusterIP.yaml
 kubectl apply -f k8s/commerce-service/commerce-green-deployment.yaml
 ```
 
-#### Deploy Frontend
+#### Step 4: Deploy Frontend
 ```bash
 kubectl apply -f k8s/frontend/frontend-deployment.yaml
 kubectl apply -f k8s/frontend/frontend-clusterIP.yaml
 ```
 
-#### Check Deployment Status
+#### Step 5: Check Deployment Status
 ```bash
 kubectl get pods
 kubectl get services
