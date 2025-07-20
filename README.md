@@ -1,6 +1,6 @@
 # DevOps Microservices Application
 
-A modern full-stack application demonstrating DevOps best practices with microservices architecture, featuring automated CI/CD pipelines, containerization, and Kubernetes orchestration.
+A modern full-stack application demonstrating DevOps best practices with microservices architecture, featuring automated CI/CD pipelines,IaC(terraform), containerization, and Kubernetes orchestration.
 
 ## Architecture Overview
 
@@ -73,17 +73,17 @@ cp tfvars/dev.tfvars terraform.tfvars
 terraform init
 
 # Plan the deployment
-terraform plan
+terraform plan -var-file="tfvars/dev.tfvars" -var="do_token=<your_digital_ocen_token>"
 
 # Apply the infrastructure
-terraform apply
+terraform plan -var-file="tfvars/dev.tfvars" -var="do_token=<your_digital_ocen_token>"
 ```
 
 This will create:
 - DigitalOcean Kubernetes cluster
 - Node pools
 - Load balancers
-- Network configurations
+- Promethues operator and Grafana Dashboard
 
 #### Step 3: Configure kubectl for the new cluster
 ```bash
@@ -316,44 +316,6 @@ This project includes automated Jenkins pipelines for frontend and both microser
 - **Automatic**: SCM polling every 5 minutes
 - **Manual**: Jenkins job execution
 - **Webhook**: Git repository changes (if configured)
-
-## 🏗️ Project Structure
-
-```
-microservices-devops/
-├── user-service/              # User authentication microservice
-│   ├── models/User.js        # User data model
-│   ├── routes/users.js       # Authentication endpoints
-│   ├── Dockerfile           # Container configuration
-│   └── Jenkinsfile         # CI/CD pipeline
-├── commerce-service/         # Product and order microservice  
-│   ├── models/
-│   │   ├── Product.js       # Product data model
-│   │   └── Order.js         # Order data model
-│   ├── routes/
-│   │   ├── products.js      # Product management endpoints
-│   │   └── order.js         # Order management endpoints
-│   ├── Dockerfile           # Container configuration
-│   └── Jenkinsfile         # CI/CD pipeline
-├── frontend/                 # React.js application
-│   ├── src/
-│   │   ├── pages/           # Application pages
-│   │   ├── components/      # Reusable components
-│   │   ├── contexts/        # React contexts
-│   │   └── api/            # API communication layer
-│   ├── Dockerfile          # Container configuration
-│   └── Jenkinsfile        # CI/CD pipeline
-├── k8s/                     # Kubernetes configurations
-│   ├── user-service/       # User service deployments
-│   ├── commerce-service/   # Commerce service deployments
-│   ├── frontend/           # Frontend deployments
-│   └── ingress.yaml       # Ingress controller
-├── terraform/              # Infrastructure as Code
-│   ├── main.tf            # Main Terraform configuration
-│   ├── variables.tf       # Variable definitions
-│   └── tfvars/           # Environment-specific variables
-└── README.md              # Project documentation
-```
 
 ## 📊 API Endpoints
 
