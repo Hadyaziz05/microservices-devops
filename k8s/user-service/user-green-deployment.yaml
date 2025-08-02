@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: hadyaziz05/user-service:v2
+          image: hadyaziz05/user-service:v4
           ports:
             - containerPort: 4000   
           env:

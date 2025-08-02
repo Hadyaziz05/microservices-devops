@@ -2,12 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: user-clusterip
+  labels:
+    app: user    
 spec:
   selector:
     app: user
     version: blue
   ports:
-  - protocol: TCP
+  - name: http
+    protocol: TCP
     port: 4040
     targetPort: 4000
   type: ClusterIP

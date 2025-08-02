@@ -52,6 +52,14 @@ provider "helm" {
     cluster_ca_certificate = base64decode(digitalocean_kubernetes_cluster.my-k8s-cluster.kube_config[0].cluster_ca_certificate)
   }
 }
+# Nginx Ingress installation
+resource "helm_release" "nginx_ingress" {
+  name       = var.nginx_ingress_release_name
+  namespace  = var.nginx_ingress_namespace
+  repository = var.nginx_ingress_repo_url
+  chart      = var.nginx_ingress_chart_name
+  create_namespace = true
+}
 
 # Prometheus installation
 resource "helm_release" "prometheus" {
