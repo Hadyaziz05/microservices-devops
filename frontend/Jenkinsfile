@@ -54,7 +54,7 @@ pipeline {
                     git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/microservices-devops-infra.git microservices-devops-infra
                     cd microservices-devops-infra
 
-                    YAML_PATH=k8s/frontend-deployment.yaml
+                    YAML_PATH=k8s/frontend/frontend-deployment.yaml
                     sed -i "s|image: .*|image: hadyaziz05/frontend:${TAG}|" "$YAML_PATH"
 
                     git add "$YAML_PATH"
