@@ -1,7 +1,7 @@
 pipeline {
     agent {
         node {
-            label 'jenkins-docker-agent'
+            label any
         }
     }
 
@@ -12,7 +12,7 @@ pipeline {
     environment {
         TAG = "v${env.BUILD_NUMBER}"
         IMAGE = "hadyaziz05/frontend:${TAG}"
-        DOCKER_HOST = 'tcp://docker-socat:2375'
+        // DOCKER_HOST = 'tcp://docker-socat:2375'
     }
 
     stages {
