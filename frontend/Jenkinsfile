@@ -1,5 +1,9 @@
 pipeline {
-    agent any
+    agent {
+        node {
+            label 'jenkins-docker-agent'
+        }
+    }
 
     triggers {
         pollSCM('H/5 * * * *')
@@ -8,7 +12,7 @@ pipeline {
     environment {
         TAG = "v${env.BUILD_NUMBER}"
         IMAGE = "hadyaziz05/frontend:${TAG}"
-        // DOCKER_HOST = 'tcp://docker-socat:2375'
+        DOCKER_HOST = 'tcp://docker-socat:2375'
     }
 
     stages {
