@@ -5,10 +5,10 @@ pipeline {
         }
     }
 
-    // triggers {
-    //     pollSCM 'H/5 * * * *'
-    // }
-
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+    
     environment {
         TAG = "v${env.BUILD_NUMBER}"
         IMAGE = "hadyaziz05/frontend:${TAG}"
@@ -16,43 +16,17 @@ pipeline {
     }
 
     stages {
-
-        stage('Check for frontend changes') {
-            steps {
-                script {
-                    def changedFiles = sh(
-                        script: "git diff --name-only HEAD~1 HEAD",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Changed files:\n${changedFiles}"
-
-                    def hasFrontendChanges = changedFiles.split('\n').any { it.startsWith('frontend/') }
-
-                    if (!hasFrontendChanges) {
-                        echo "No changes in /frontend folder. Skipping build."
-                        currentBuild.result = 'SUCCESS'
-                        sh 'exit 0'
-                    }
-                }
-            }
-        }
-
         stage('Build') {
             steps {
                 echo "Building Docker Image: ${IMAGE}"
-                sh '''
-                docker build -t $IMAGE frontend/
-                '''
+                sh 'docker build -t $IMAGE frontend/'
             }
         }
 
         stage('Test') {
             steps {
-                echo "Running container test..."
-                sh '''
-                docker run --rm $IMAGE serve --version
-                '''
+                echo "Running container smoke test..."
+                sh 'docker run --rm $IMAGE serve --version'
             }
         }
 
@@ -68,30 +42,36 @@ pipeline {
             }
         }
 
-        stage('Update YAML and Deploy to K8s') {
+        stage('Update Infra Repo') {
             steps {
-                echo "Updating frontend-deployment.yaml and applying to Kubernetes"
-                withCredentials([
-                    usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS'),
-                    file(credentialsId: 'kube-config-jenkins', variable: 'KUBECONFIG')
-                ]) {
+                echo "Updating infra repo with new image tag..."
+                withCredentials([usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
-                    rm -rf repo
+                    rm -rf infra-repo
                     git config --global user.name "Jenkins CI"
                     git config --global user.email "jenkins@example.com"
 
-                    git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/devops-microservices.git repo
-                    cd repo
+                    git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/infra-repo.git infra-repo
+                    cd infra-repo
 
                     YAML_PATH=k8s/frontend-deployment.yaml
-                    sed -i "s|image: .*|image: ${IMAGE}|" "$YAML_PATH"
+                    sed -i "s|image: .*|image: hadyaziz05/frontend:${TAG}|" "$YAML_PATH"
 
                     git add "$YAML_PATH"
-                    git commit -m "[skip ci] update frontend image to ${TAG}" || echo "No changes"
+                    git commit -m "chore: update frontend image to ${TAG}" || echo "No changes"
                     git push origin main
+                    '''
+                }
+            }
+        }
 
-                    echo "Applying updated YAML to Kubernetes..."
-                    kubectl apply -f "$YAML_PATH"
+        stage('Deploy to K8s') {
+            steps {
+                echo "Deploying from infra repo..."
+                withCredentials([file(credentialsId: 'kube-config-jenkins', variable: 'KUBECONFIG')]) {
+                    sh '''
+                    cd infra-repo
+                    kubectl apply -f k8s/frontend-deployment.yaml
                     '''
                 }
             }
