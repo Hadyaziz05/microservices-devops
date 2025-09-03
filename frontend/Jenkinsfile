@@ -70,8 +70,8 @@ pipeline {
                 echo "Deploying from infra repo..."
                 withCredentials([file(credentialsId: 'kube-config-jenkins', variable: 'KUBECONFIG')]) {
                     sh '''
-                    cd infra-repo
-                    kubectl apply -f k8s/frontend-deployment.yaml
+                    cd microservices-devops-infra
+                    kubectl apply -f k8s/frontend/frontend-deployment.yaml
                     '''
                 }
             }
