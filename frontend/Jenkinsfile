@@ -45,14 +45,14 @@ pipeline {
         stage('Update Infra Repo') {
             steps {
                 echo "Updating infra repo with new image tag..."
-                withCredentials([usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     sh '''
-                    rm -rf infra-repo
+                    rm -rf microservices-devops-infra
                     git config --global user.name "Jenkins CI"
                     git config --global user.email "jenkins@example.com"
 
-                    git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/infra-repo.git infra-repo
-                    cd infra-repo
+                    git clone https://$GIT_USER:$GIT_PASS@github.com/Hadyaziz05/microservices-devops-infra.git microservices-devops-infra
+                    cd microservices-devops-infra
 
                     YAML_PATH=k8s/frontend-deployment.yaml
                     sed -i "s|image: .*|image: hadyaziz05/frontend:${TAG}|" "$YAML_PATH"

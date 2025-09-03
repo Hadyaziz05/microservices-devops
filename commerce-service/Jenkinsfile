@@ -100,7 +100,7 @@ pipeline {
         stage('Update YAML in Git') {
             steps {
                 echo "Updating Kubernetes YAML in Git with new image and service selector..."
-                withCredentials([usernamePassword(credentialsId: 'git-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     withEnv(["NEW_VERSION=${env.NEW_VERSION}", "OLD_VERSION=${env.OLD_VERSION}"]) {
                         sh '''
                         rm -rf repo
