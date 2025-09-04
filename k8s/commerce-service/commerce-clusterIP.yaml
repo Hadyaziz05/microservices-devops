@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: commerce-clusterip
+spec:
+  selector:
+    app: commerce
+    version: blue
+  ports:
+  - protocol: TCP
+    port: 5050
+    targetPort: 5000
+  type: ClusterIP
