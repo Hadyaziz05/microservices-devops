@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const connectDB = require('./database/connectDB');
 const userRoutes = require('./routes/users');
+const healthRoutes = require('./routes/health');
 const { observeRequestMetrics, metricsEndpoint } = require('./metrics/metrics');
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.use(observeRequestMetrics);
 app.use('/api/user', userRoutes);
+app.use('/api/user/health', healthRoutes);
 
 app.get('/metrics', metricsEndpoint);
 
